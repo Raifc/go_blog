@@ -2,39 +2,48 @@ package db
 
 import (
     "database/sql"
+    "fmt"
     "log"
 
+    _ "github.com/lib/pq"
     "go-blog/config"
-
-    _ "github.com/mattn/go-sqlite3"
 )
 
 var DB *sql.DB
 
 func Init() {
     var err error
-    DB, err = sql.Open(config.DBDriver, config.DBName)
+    dataSourceName := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+        config.DBHost, config.DBPort, config.DBUser, config.DBPassword, config.DBName)
+
+    DB, err = sql.Open(config.DBDriver, dataSourceName)
     if err != nil {
-        log.Fatal(err)
+        log.Fatal("Failed to connect to the database:", err)
+    }
+
+    if err = DB.Ping(); err != nil {
+        log.Fatal("Failed to ping the database:", err)
     }
 
     createTable()
 }
 
 func createTable() {
-    sqlStmt := `
+    query := `
     CREATE TABLE IF NOT EXISTS blogpost (
-        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        content TEXT
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(100) NOT NULL,
+        content TEXT NOT NULL
     );
     `
-    _, err := DB.Exec(sqlStmt)
+    _, err := DB.Exec(query)
     if err != nil {
-        log.Fatalf("%q: %s\n", err, sqlStmt)
+        log.Fatal("Failed to create table:", err)
     }
 }
 
 func Close() {
-    DB.Close()
+    if DB != nil {
+        DB.Close()
+    }
 }
