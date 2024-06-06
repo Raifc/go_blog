@@ -7,19 +7,14 @@ import (
 )
 
 func CreatePost(post *models.BlogPost) error {
-    stmt, err := db.DB.Prepare("INSERT INTO blogpost(title, content) VALUES(?, ?)")
+    stmt, err := db.DB.Prepare("INSERT INTO blogpost (title, content) VALUES ($1, $2) RETURNING id")
     if err != nil {
         return err
     }
-    res, err := stmt.Exec(post.Title, post.Content)
+    err = stmt.QueryRow(post.Title, post.Content).Scan(&post.ID)
     if err != nil {
         return err
     }
-    id, err := res.LastInsertId()
-    if err != nil {
-        return err
-    }
-    post.ID = int(id)
     return nil
 }
 
@@ -44,7 +39,7 @@ func GetPosts() ([]models.BlogPost, error) {
 
 func GetPost(id int) (*models.BlogPost, error) {
     var post models.BlogPost
-    err := db.DB.QueryRow("SELECT id, title, content FROM blogpost WHERE id = ?", id).Scan(&post.ID, &post.Title, &post.Content)
+    err := db.DB.QueryRow("SELECT id, title, content FROM blogpost WHERE id = $1", id).Scan(&post.ID, &post.Title, &post.Content)
     if err != nil {
         if err == sql.ErrNoRows {
             return nil, nil
@@ -55,7 +50,7 @@ func GetPost(id int) (*models.BlogPost, error) {
 }
 
 func UpdatePost(post *models.BlogPost) error {
-    stmt, err := db.DB.Prepare("UPDATE blogpost SET title = ?, content = ? WHERE id = ?")
+    stmt, err := db.DB.Prepare("UPDATE blogpost SET title = $1, content = $2 WHERE id = $3")
     if err != nil {
         return err
     }
@@ -67,7 +62,7 @@ func UpdatePost(post *models.BlogPost) error {
 }
 
 func DeletePost(id int) error {
-    stmt, err := db.DB.Prepare("DELETE FROM blogpost WHERE id = ?")
+    stmt, err := db.DB.Prepare("DELETE FROM blogpost WHERE id = $1")
     if err != nil {
         return err
     }
