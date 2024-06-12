@@ -1,49 +1,47 @@
 package db
 
 import (
-    "database/sql"
-    "fmt"
-    "log"
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
 
-    _ "github.com/lib/pq"
-    "go-blog/config"
+	_ "github.com/lib/pq"
 )
 
 var DB *sql.DB
 
 func Init() {
-    var err error
-    dataSourceName := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-        config.DBHost, config.DBPort, config.DBUser, config.DBPassword, config.DBName)
+	var err error
 
-    DB, err = sql.Open(config.DBDriver, dataSourceName)
-    if err != nil {
-        log.Fatal("Failed to connect to the database:", err)
-    }
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+	)
 
-    if err = DB.Ping(); err != nil {
-        log.Fatal("Failed to ping the database:", err)
-    }
+	DB, err = sql.Open(os.Getenv("DB_DRIVER"), connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    createTable()
-}
+	err = DB.Ping()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-func createTable() {
-    query := `
-    CREATE TABLE IF NOT EXISTS blogpost (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(100) NOT NULL,
-        content TEXT NOT NULL
-    );
-    `
-    _, err := DB.Exec(query)
-    if err != nil {
-        log.Fatal("Failed to create table:", err)
-    }
+	fmt.Println("Database connection established")
 }
 
 func Close() {
-    if DB != nil {
-        DB.Close()
-    }
+	if DB != nil {
+		err := DB.Close()
+		if err != nil {
+			log.Println("Error closing the database:", err)
+		} else {
+			fmt.Println("Database connection closed")
+		}
+	}
 }

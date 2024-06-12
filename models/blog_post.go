@@ -5,3 +5,9 @@ type BlogPost struct {
     Title   string `json:"title"`
     Content string `json:"content"`
 }
+
+type Comment struct {
+    ID      int    `json:"id"`
+    PostID  int    `json:"post_id"`
+    Content string `json:"content"`
+}
