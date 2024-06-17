@@ -25,10 +25,6 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
         utils.RespondWithError(w, utils.NewAppError("Invalid request payload", http.StatusBadRequest))
         return
     }
-    if err := h.PostService.CreatePost(&post); err != nil {
-        utils.RespondWithError(w, utils.NewAppError("Failed to create post", http.StatusInternalServerError))
-        return
-    }
     utils.RespondWithJSON(w, http.StatusCreated, post)
 }
 
