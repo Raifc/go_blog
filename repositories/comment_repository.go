@@ -3,6 +3,7 @@ package repositories
 import (
     "database/sql"
     "go-blog/models"
+    "github.com/sirupsen/logrus"
 )
 
 type CommentRepository struct {
@@ -14,19 +15,19 @@ func NewCommentRepository(db *sql.DB) *CommentRepository {
 }
 
 func (r *CommentRepository) Create(comment *models.Comment) error {
-    stmt, err := r.DB.Prepare("INSERT INTO comments(post_id, content) VALUES($1, $2)")
+    stmt, err := r.DB.Prepare("INSERT INTO comments(post_id, content) VALUES($1, $2) RETURNING id")
     if err != nil {
+        logrus.Errorf("Error preparing statement: %v", err)
         return err
     }
-    res, err := stmt.Exec(comment.PostID, comment.Content)
+    defer stmt.Close()
+
+    err = stmt.QueryRow(comment.PostID, comment.Content).Scan(&comment.ID)
     if err != nil {
+        logrus.Errorf("Error executing statement: %v", err)
         return err
     }
-    id, err := res.LastInsertId()
-    if err != nil {
-        return err
-    }
-    comment.ID = int(id)
+
     return nil
 }
 
