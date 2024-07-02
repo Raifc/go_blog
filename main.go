@@ -24,14 +24,16 @@ func main() {
     logrus.SetLevel(logrus.InfoLevel)
 
     postRepo := repositories.NewPostRepository(db.DB)
-    postService := services.NewPostService(postRepo)
-    postHandler := handlers.NewPostHandler(postService)
-
     commentRepo := repositories.NewCommentRepository(db.DB)
+
+    postService := services.NewPostService(postRepo, commentRepo)
     commentService := services.NewCommentService(commentRepo)
+
+    postHandler := handlers.NewPostHandler(postService)
     commentHandler := handlers.NewCommentHandler(commentService)
 
     r := mux.NewRouter()
+
     r.Use(middlewares.Logger)
 
     r.HandleFunc("/posts", postHandler.CreatePost).Methods("POST")
@@ -46,6 +48,7 @@ func main() {
     r.HandleFunc("/comments/{id:[0-9]+}", commentHandler.UpdateComment).Methods("PUT")
     r.HandleFunc("/comments/{id:[0-9]+}", commentHandler.DeleteComment).Methods("DELETE")
 
-    logrus.Info("Server started at :8080")
-    logrus.Fatal(http.ListenAndServe(":8080", r))
+    addr := ":8080"
+    logrus.Infof("Server started at %s", addr)
+    logrus.Fatal(http.ListenAndServe(addr, r))
 }
