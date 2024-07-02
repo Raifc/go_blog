@@ -13,22 +13,22 @@ func NewPostService(postRepo *repositories.PostRepository) *PostService {
 	return &PostService{PostRepo: postRepo}
 }
 
-func (ps *PostService) CreatePost(post *models.BlogPost) (*models.BlogPost, error) {
+func (ps *PostService) CreatePost(post *models.Post) (*models.Post, error) {
 	if err := ps.PostRepo.Create(post); err != nil {
 		return nil, err
 	}
 	return post, nil
 }
 
-func (s *PostService) GetPosts() ([]models.BlogPost, error) {
+func (s *PostService) GetPosts() ([]models.Post, error) {
 	return s.PostRepo.GetAll()
 }
 
-func (s *PostService) GetPost(id int) (*models.BlogPost, error) {
+func (s *PostService) GetPost(id int) (*models.Post, error) {
 	return s.PostRepo.GetByID(id)
 }
 
-func (s *PostService) UpdatePost(post *models.BlogPost) error {
+func (s *PostService) UpdatePost(post *models.Post) error {
 	return s.PostRepo.Update(post)
 }
 

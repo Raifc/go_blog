@@ -21,7 +21,7 @@ func NewPostHandler(postService *services.PostService) *PostHandler {
 }
 
 func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
-    var post models.BlogPost
+    var post models.Post
     if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
         utils.RespondWithError(w, utils.NewAppError("Invalid request payload", http.StatusBadRequest))
         return
@@ -71,7 +71,7 @@ func (h *PostHandler) UpdatePost(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, utils.NewAppError("Invalid post ID", http.StatusBadRequest))
 		return
 	}
-	var post models.BlogPost
+	var post models.Post
 	if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
 		utils.RespondWithError(w, utils.NewAppError("Invalid request payload", http.StatusBadRequest))
 		return

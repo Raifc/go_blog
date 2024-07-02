@@ -7,6 +7,9 @@ import (
 	"os"
 
 	_ "github.com/lib/pq"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 var DB *sql.DB
@@ -33,6 +36,8 @@ func Init() {
 	}
 
 	fmt.Println("Database connection established")
+
+	runMigrations(connStr)
 }
 
 func Close() {
@@ -44,4 +49,37 @@ func Close() {
 			fmt.Println("Database connection closed")
 		}
 	}
+}
+
+func runMigrations(connStr string) {
+	driver, err := postgres.WithInstance(DB, &postgres.Config{})
+	if err != nil {
+		log.Fatal("Could not create postgres driver:", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://migrations",
+		"postgres", driver)
+	if err != nil {
+		log.Fatal("Could not create migrate instance:", err)
+	}
+
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		if err.Error() == "dirty database" {
+			log.Println("Database is in a dirty state. Forcing clean state...")
+			forceErr := m.Force(1)
+			if forceErr != nil {
+				log.Fatal("Could not force migration version:", forceErr)
+			}
+			err = m.Up()
+			if err != nil && err != migrate.ErrNoChange {
+				log.Fatal("Could not run up migrations after forcing clean state:", err)
+			}
+		} else {
+			log.Fatal("Could not run up migrations:", err)
+		}
+	}
+
+	fmt.Println("Migrations applied successfully!")
 }

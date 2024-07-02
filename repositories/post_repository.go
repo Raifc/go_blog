@@ -15,8 +15,8 @@ func NewPostRepository(db *sql.DB) *PostRepository {
 	return &PostRepository{DB: db}
 }
 
-func (r *PostRepository) Create(post *models.BlogPost) error {
-    stmt, err := r.DB.Prepare("INSERT INTO blogpost(title, content) VALUES($1, $2) RETURNING id")
+func (r *PostRepository) Create(post *models.Post) error {
+    stmt, err := r.DB.Prepare("INSERT INTO posts(title, content) VALUES($1, $2) RETURNING id")
     if err != nil {
         logrus.Errorf("Error preparing statement: %v", err)
         return err
@@ -32,16 +32,16 @@ func (r *PostRepository) Create(post *models.BlogPost) error {
     return nil
 }
 
-func (r *PostRepository) GetAll() ([]models.BlogPost, error) {
-	rows, err := r.DB.Query("SELECT id, title, content FROM blogpost")
+func (r *PostRepository) GetAll() ([]models.Post, error) {
+	rows, err := r.DB.Query("SELECT id, title, content FROM posts")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var posts []models.BlogPost
+	var posts []models.Post
 	for rows.Next() {
-		var post models.BlogPost
+		var post models.Post
 		err := rows.Scan(&post.ID, &post.Title, &post.Content)
 		if err != nil {
 			return nil, err
@@ -51,9 +51,9 @@ func (r *PostRepository) GetAll() ([]models.BlogPost, error) {
 	return posts, nil
 }
 
-func (r *PostRepository) GetByID(id int) (*models.BlogPost, error) {
-	var post models.BlogPost
-	err := r.DB.QueryRow("SELECT id, title, content FROM blogpost WHERE id = $1", id).Scan(&post.ID, &post.Title, &post.Content)
+func (r *PostRepository) GetByID(id int) (*models.Post, error) {
+	var post models.Post
+	err := r.DB.QueryRow("SELECT id, title, content FROM posts WHERE id = $1", id).Scan(&post.ID, &post.Title, &post.Content)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -63,8 +63,8 @@ func (r *PostRepository) GetByID(id int) (*models.BlogPost, error) {
 	return &post, nil
 }
 
-func (r *PostRepository) Update(post *models.BlogPost) error {
-	stmt, err := r.DB.Prepare("UPDATE blogpost SET title = $1, content = $2 WHERE id = $3")
+func (r *PostRepository) Update(post *models.Post) error {
+	stmt, err := r.DB.Prepare("UPDATE posts SET title = $1, content = $2 WHERE id = $3")
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (r *PostRepository) Update(post *models.BlogPost) error {
 }
 
 func (r *PostRepository) Delete(id int) error {
-	stmt, err := r.DB.Prepare("DELETE FROM blogpost WHERE id = $1")
+	stmt, err := r.DB.Prepare("DELETE FROM posts WHERE id = $1")
 	if err != nil {
 		return err
 	}
