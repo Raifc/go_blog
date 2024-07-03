@@ -2,149 +2,92 @@ package handlers
 
 import (
     "bytes"
-    "database/sql"
     "encoding/json"
     "net/http"
     "net/http/httptest"
-    "os"
-    "strconv"
     "testing"
+
+    "go-blog/models"
+    "go-blog/services"
 
     "github.com/gorilla/mux"
     "github.com/stretchr/testify/assert"
-    _ "github.com/mattn/go-sqlite3"
-    "go-blog/config"
-    "go-blog/db"
-    "go-blog/models"
-    "go-blog/services"
 )
 
-var testDB *sql.DB
-
-func TestMain(m *testing.M) {
-    os.Setenv("DB_DRIVER", "sqlite3")
-    os.Setenv("DB_NAME", "./test_blog.db")
-
-    config.DBDriver = os.Getenv("DB_DRIVER")
-    config.DBName = os.Getenv("DB_NAME")
-
-    db.Init()
-    testDB = db.DB
-
-    code := m.Run()
-
-    db.Close()
-
-    os.Remove("./test_blog.db")
-
-    os.Exit(code)
+type mockPostService struct {
+    posts []models.Post
 }
 
-func clearTable() {
-    testDB.Exec("DELETE FROM blogpost")
-    testDB.Exec("DELETE FROM sqlite_sequence WHERE name='blogpost'")
+func (m *mockPostService) CreatePost(post *models.Post) (*models.Post, error) {
+    post.ID = 1
+    m.posts = append(m.posts, *post)
+    return post, nil
 }
 
+func (m *mockPostService) GetPosts() ([]models.Post, error) {
+    return m.posts, nil
+}
 
 func TestCreatePost(t *testing.T) {
-    clearTable()
+    mockService := &mockPostService{}
+    handler := NewPostHandler(mockService)
 
-    post := models.BlogPost{Title: "Test Title", Content: "Test Content"}
-    payload, _ := json.Marshal(post)
+    router := mux.NewRouter()
+    router.HandleFunc("/posts", handler.CreatePost).Methods("POST")
 
-    req, _ := http.NewRequest("POST", "/posts", bytes.NewBuffer(payload))
+    newPost := models.Post{Title: "Test Title", Content: "Test Content"}
+    jsonPost, _ := json.Marshal(newPost)
+
+    req, err := http.NewRequest("POST", "/posts", bytes.NewBuffer(jsonPost))
+    if err != nil {
+        t.Fatal(err)
+    }
+    req.Header.Set("Content-Type", "application/json")
+
     rr := httptest.NewRecorder()
-    handler := http.HandlerFunc(CreatePost)
+    router.ServeHTTP(rr, req)
 
-    handler.ServeHTTP(rr, req)
+    assert.Equal(t, http.StatusCreated, rr.Code, "Expected status 201 Created")
 
-    assert.Equal(t, http.StatusCreated, rr.Code)
+    var createdPost models.Post
+    err = json.NewDecoder(rr.Body).Decode(&createdPost)
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    assert.Equal(t, newPost.Title, createdPost.Title, "Expected title to match")
+    assert.Equal(t, newPost.Content, createdPost.Content, "Expected content to match")
+    assert.Equal(t, 1, createdPost.ID, "Expected ID to be 1")
 }
 
 func TestGetPosts(t *testing.T) {
-    clearTable()
-    services.CreatePost(&models.BlogPost{Title: "Title 1", Content: "Content 1"})
-    services.CreatePost(&models.BlogPost{Title: "Title 2", Content: "Content 2"})
-
-    req, _ := http.NewRequest("GET", "/posts", nil)
-    rr := httptest.NewRecorder()
-    handler := http.HandlerFunc(GetPosts)
-
-    handler.ServeHTTP(rr, req)
-
-    assert.Equal(t, http.StatusOK, rr.Code)
-    var posts []models.BlogPost
-    err := json.Unmarshal(rr.Body.Bytes(), &posts)
-    assert.NoError(t, err)
-    assert.Len(t, posts, 2)
-}
-
-func TestGetPost(t *testing.T) {
-    clearTable()
-    post := models.BlogPost{Title: "Test Title", Content: "Test Content"}
-    services.CreatePost(&post)
-
-    req, _ := http.NewRequest("GET", "/posts/"+strconv.Itoa(post.ID), nil)
-    rr := httptest.NewRecorder()
-    handler := http.HandlerFunc(GetPost)
-
-    vars := map[string]string{
-        "id": strconv.Itoa(post.ID),
+    mockService := &mockPostService{
+        posts: []models.Post{
+            {ID: 1, Title: "Test Title", Content: "Test Content"},
+        },
     }
-    req = mux.SetURLVars(req, vars)
+    handler := NewPostHandler(mockService)
 
-    handler.ServeHTTP(rr, req)
+    router := mux.NewRouter()
+    router.HandleFunc("/posts", handler.GetPosts).Methods("GET")
 
-    assert.Equal(t, http.StatusOK, rr.Code)
-    var fetchedPost models.BlogPost
-    err := json.Unmarshal(rr.Body.Bytes(), &fetchedPost)
-    assert.NoError(t, err)
-    assert.Equal(t, post.Title, fetchedPost.Title)
-    assert.Equal(t, post.Content, fetchedPost.Content)
-}
-
-func TestUpdatePost(t *testing.T) {
-    clearTable()
-    post := models.BlogPost{Title: "Initial Title", Content: "Initial Content"}
-    services.CreatePost(&post)
-
-    updatedPost := models.BlogPost{Title: "Updated Title", Content: "Updated Content"}
-    payload, _ := json.Marshal(updatedPost)
-
-    req, _ := http.NewRequest("PUT", "/posts/"+strconv.Itoa(post.ID), bytes.NewBuffer(payload))
-    rr := httptest.NewRecorder()
-    handler := http.HandlerFunc(UpdatePost)
-
-    vars := map[string]string{
-        "id": strconv.Itoa(post.ID),
+    req, err := http.NewRequest("GET", "/posts", nil)
+    if err != nil {
+        t.Fatal(err)
     }
-    req = mux.SetURLVars(req, vars)
 
-    handler.ServeHTTP(rr, req)
-
-    assert.Equal(t, http.StatusOK, rr.Code)
-    var fetchedPost models.BlogPost
-    err := json.Unmarshal(rr.Body.Bytes(), &fetchedPost)
-    assert.NoError(t, err)
-    assert.Equal(t, updatedPost.Title, fetchedPost.Title)
-    assert.Equal(t, updatedPost.Content, fetchedPost.Content)
-}
-
-func TestDeletePost(t *testing.T) {
-    clearTable()
-    post := models.BlogPost{Title: "Test Title", Content: "Test Content"}
-    services.CreatePost(&post)
-
-    req, _ := http.NewRequest("DELETE", "/posts/"+strconv.Itoa(post.ID), nil)
     rr := httptest.NewRecorder()
-    handler := http.HandlerFunc(DeletePost)
+    router.ServeHTTP(rr, req)
 
-    vars := map[string]string{
-        "id": strconv.Itoa(post.ID),
+    assert.Equal(t, http.StatusOK, rr.Code, "Expected status 200 OK")
+
+    var posts []models.Post
+    err = json.NewDecoder(rr.Body).Decode(&posts)
+    if err != nil {
+        t.Fatal(err)
     }
-    req = mux.SetURLVars(req, vars)
 
-    handler.ServeHTTP(rr, req)
-
-    assert.Equal(t, http.StatusNoContent, rr.Code)
+    assert.Len(t, posts, 1, "Expected length of posts to be 1")
+    assert.Equal(t, mockService.posts[0].Title, posts[0].Title, "Expected title to match")
+    assert.Equal(t, mockService.posts[0].Content, posts[0].Content, "Expected content to match")
 }
